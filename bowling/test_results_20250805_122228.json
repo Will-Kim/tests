@@ -1,0 +1,17 @@
+[
+  {
+    "image_path": "uploads/bowling_score_20250805_115611.jpg",
+    "image_size": [
+      4000,
+      3000
+    ],
+    "saved_path": "uploads/bowling_score_20250805_122225.jpg",
+    "preprocessing": "auto",
+    "ocr_result": {
+      "full_text": "",
+      "blocks": [],
+      "method": "error"
+    },
+    "timestamp": "2025-08-05T12:22:28.070150"
+  }
+]

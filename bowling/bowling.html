@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>볼링 스코어보드 인식기</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+
+        .main-content {
+            padding: 40px;
+        }
+
+        .upload-section {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border: 3px dashed #dee2e6;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .upload-section:hover {
+            border-color: #667eea;
+            background: #f0f2ff;
+        }
+
+        .upload-section.dragover {
+            border-color: #667eea;
+            background: #e3e8ff;
+            transform: scale(1.02);
+        }
+
+        .upload-btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 10px;
+        }
+
+        .upload-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .preview-section {
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .image-preview {
+            max-width: 100%;
+            max-height: 400px;
+            border-radius: 10px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            margin: 20px 0;
+        }
+
+        .results-section {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 30px;
+            margin-top: 30px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .score-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .score-table th, .score-table td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .score-table th {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            font-weight: 600;
+        }
+
+        .score-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .member-list {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .member-item {
+            padding: 10px 15px;
+            margin: 5px 0;
+            background: #f8f9fa;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .member-item:hover {
+            background: #e3e8ff;
+            transform: translateX(5px);
+        }
+
+        .confidence-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .confidence-high {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .confidence-medium {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .confidence-low {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        /* 결과 편집 팝업 스타일 */
+        .edit-popup {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .edit-popup-content {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+
+        .edit-popup-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #eee;
+        }
+
+        .edit-popup-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .edit-popup-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #666;
+            padding: 5px;
+        }
+
+        .edit-popup-close:hover {
+            color: #333;
+        }
+
+        .edit-result-item {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border: 1px solid #dee2e6;
+        }
+
+        .edit-result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .edit-result-number {
+            background: #667eea;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+        }
+
+        .edit-input-group {
+            margin-bottom: 15px;
+        }
+
+        .edit-input-label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .edit-input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .edit-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .edit-popup-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: flex-end;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+
+        .edit-btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .edit-btn-primary {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .edit-btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .edit-btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .edit-btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border: 1px solid #f5c6cb;
+        }
+
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border: 1px solid #c3e6cb;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                margin: 10px;
+                border-radius: 15px;
+            }
+            
+            .header {
+                padding: 20px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .main-content {
+                padding: 20px;
+            }
+            
+            .upload-section {
+                padding: 20px;
+            }
+        }
+
+        .ocr-options {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .option-group {
+            margin: 15px 0;
+        }
+
+        .option-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .option-group input, .option-group select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+
+        .option-group input:focus, .option-group select:focus {
+            border-color: #667eea;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎳 볼링 스코어보드 인식기</h1>
+            <p>휴대폰으로 촬영한 볼링장 디스플레이를 정확하게 인식합니다</p>
+        </div>
+
+        <div class="main-content">
+            <!-- 업로드 섹션 -->
+            <div class="upload-section" id="uploadSection">
+                <h3>📸 이미지 업로드</h3>
+                <p>볼링장 스코어보드 이미지를 업로드하거나 드래그해주세요</p>
+                <input type="file" id="fileInput" class="file-input" accept="image/*">
+                <button class="upload-btn" onclick="openCamera()">
+                    📱 사진 촬영
+                </button>
+                <button class="upload-btn" onclick="selectFile()">
+                    📁 파일 선택
+                </button>
+                <button class="upload-btn" onclick="processImage()">
+                    🔍 이미지 분석
+                </button>
+            </div>
+
+            <!-- OCR 옵션 -->
+            <div class="ocr-options" id="ocrOptions" style="display: none;">
+                <h3>⚙️ 인식 설정</h3>
+                <div class="option-group">
+                    <label>인식 언어</label>
+                    <select id="languageSelect">
+                        <option value="kor+eng">한국어 + 영어</option>
+                        <option value="kor">한국어만</option>
+                        <option value="eng">영어만</option>
+                    </select>
+                </div>
+                <div class="option-group">
+                    <label>이미지 전처리</label>
+                    <select id="preprocessingSelect">
+                        <option value="auto">자동</option>
+                        <option value="contrast">대비 강화</option>
+                        <option value="blur">노이즈 제거</option>
+                        <option value="threshold">이진화</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- 미리보기 섹션 -->
+            <div class="preview-section" id="previewSection" style="display: none;">
+                <h3>📋 이미지 미리보기</h3>
+                <img id="imagePreview" class="image-preview" alt="이미지 미리보기">
+            </div>
+
+            <!-- 회원 목록 -->
+            <div class="member-list" id="memberList">
+                <h3>👥 등록된 회원 목록</h3>
+                <div class="member-item" onclick="addMember('김환규')">김환규</div>
+                <div class="member-item" onclick="addMember('허영범')">허영범</div>
+                <div class="member-item" onclick="addMember('김희조')">김희조</div>
+                <div class="member-item" onclick="addMember('김정원')">김정원</div>
+                <div class="member-item" onclick="addMember('표경희')">표경희</div>
+                <div class="member-item" onclick="addMember('김경희')">김경희</div>
+                <div class="member-item" onclick="addMember('이동현')">이동현</div>
+                <div class="member-item" onclick="addMember('박서연')">박서연</div>
+                <input type="text" placeholder="새 회원 이름 추가..." onkeypress="if(event.key==='Enter') addNewMember(this.value)" style="width: 100%; padding: 10px; margin-top: 10px; border: 2px solid #dee2e6; border-radius: 8px;">
+            </div>
+
+            <!-- 결과 섹션 -->
+            <div class="results-section" id="resultsSection" style="display: none;">
+                <h3>📊 인식 결과</h3>
+                <div id="loadingDiv" class="loading" style="display: none;">
+                    <div class="loading-spinner"></div>
+                    <p>이미지를 분석 중입니다...</p>
+                </div>
+                <div id="resultsDiv"></div>
+                <div style="text-align: center; margin-top: 20px;">
+                    <button onclick="showEditPopup()" class="upload-btn" style="background: linear-gradient(45deg, #28a745, #20c997);">
+                        ✏️ 결과 수정하기
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 결과 편집 팝업 -->
+    <div id="editPopup" class="edit-popup">
+        <div class="edit-popup-content">
+            <div class="edit-popup-header">
+                <h3 class="edit-popup-title">📝 결과 수정</h3>
+                <button class="edit-popup-close" onclick="closeEditPopup()">&times;</button>
+            </div>
+            <div id="editPopupContent">
+                <!-- 편집 내용이 여기에 동적으로 추가됩니다 -->
+            </div>
+            <div class="edit-popup-buttons">
+                <button class="edit-btn edit-btn-secondary" onclick="closeEditPopup()">취소</button>
+                <button class="edit-btn edit-btn-primary" onclick="confirmEdit()">확인</button>
+            </div>
+        </div>
+    </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedImage = null;
+        let selectedFile = null;
+        let memberNames = ['김환규', '허영범', '김희조', '김정원', '표경희', '김경희', '이동현', '박서연'];
+        let recognizedData = [];
+
+        // 드래그 앤 드롭 이벤트
+        const uploadSection = document.getElementById('uploadSection');
+        
+        uploadSection.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadSection.classList.add('dragover');
+        });
+
+        uploadSection.addEventListener('dragleave', () => {
+            uploadSection.classList.remove('dragover');
+        });
+
+        uploadSection.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadSection.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileSelect(files[0]);
+            }
+        });
+
+        // 파일 선택 이벤트
+        document.getElementById('fileInput').addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+
+        // 카메라 촬영 함수
+        function openCamera() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.capture = 'environment';
+            input.onchange = (e) => {
+                if (e.target.files.length > 0) {
+                    handleFileSelect(e.target.files[0]);
+                }
+            };
+            input.click();
+        }
+
+        // 파일 선택 함수
+        function selectFile() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.onchange = (e) => {
+                if (e.target.files.length > 0) {
+                    handleFileSelect(e.target.files[0]);
+                }
+            };
+            input.click();
+        }
+
+        function handleFileSelect(file) {
+            if (!file.type.startsWith('image/')) {
+                showError('이미지 파일만 업로드 가능합니다.');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                selectedImage = e.target.result;
+                showImagePreview(e.target.result);
+                document.getElementById('ocrOptions').style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function showImagePreview(imageSrc) {
+            const previewSection = document.getElementById('previewSection');
+            const imagePreview = document.getElementById('imagePreview');
+            
+            imagePreview.src = imageSrc;
+            previewSection.style.display = 'block';
+        }
+
+        function addMember(name) {
+            if (!memberNames.includes(name)) {
+                memberNames.push(name);
+                updateMemberList();
+            }
+        }
+
+        function addNewMember(name) {
+            if (name.trim() && !memberNames.includes(name.trim())) {
+                memberNames.push(name.trim());
+                updateMemberList();
+                document.querySelector('input[placeholder="새 회원 이름 추가..."]').value = '';
+            }
+        }
+
+        function updateMemberList() {
+            const memberList = document.getElementById('memberList');
+            const memberItems = memberList.querySelectorAll('.member-item');
+            
+            // 기존 아이템 제거 (입력 필드 제외)
+            memberItems.forEach(item => item.remove());
+            
+            // 새 아이템 추가
+            memberNames.forEach(name => {
+                const div = document.createElement('div');
+                div.className = 'member-item';
+                div.textContent = name;
+                div.onclick = () => addMember(name);
+                memberList.insertBefore(div, memberList.lastElementChild);
+            });
+        }
+
+        async function processImage() {
+            console.log('이미지 분석 시작...');
+            
+            if (!selectedImage) {
+                console.log('선택된 이미지가 없음');
+                showError('먼저 이미지를 업로드해주세요.');
+                return;
+            }
+
+            console.log('이미지 분석 버튼 클릭됨');
+            
+            // 버튼들 비활성화
+            const buttons = document.querySelectorAll('.upload-btn');
+            buttons.forEach(btn => {
+                btn.disabled = true;
+                btn.style.opacity = '0.5';
+                btn.style.cursor = 'not-allowed';
+            });
+            
+            showLoading(true);
+            
+            try {
+                console.log('이미지 전처리 시작...');
+                // 이미지 전처리
+                const processedImage = await preprocessImage(selectedImage);
+                console.log('이미지 전처리 완료');
+                
+                console.log('OCR 수행 시작...');
+                // OCR 수행
+                const ocrResults = await performOCR(processedImage);
+                console.log('OCR 수행 완료:', ocrResults);
+                
+                console.log('데이터 파싱 시작...');
+                // 볼링 스코어 데이터 파싱
+                const parsedData = parseScoreboardData(ocrResults);
+                console.log('데이터 파싱 완료:', parsedData);
+                
+                console.log('이름 매칭 시작...');
+                // 이름 매칭
+                const matchedData = matchNames(parsedData);
+                console.log('이름 매칭 완료:', matchedData);
+                
+                console.log('결과 표시 시작...');
+                // 결과 표시
+                displayResults(matchedData);
+                console.log('결과 표시 완료');
+                
+            } catch (error) {
+                console.error('이미지 처리 오류:', error);
+                showError('이미지 처리 중 오류가 발생했습니다: ' + error.message);
+            } finally {
+                showLoading(false);
+                
+                // 버튼들 다시 활성화
+                const buttons = document.querySelectorAll('.upload-btn');
+                buttons.forEach(btn => {
+                    btn.disabled = false;
+                    btn.style.opacity = '1';
+                    btn.style.cursor = 'pointer';
+                });
+                
+                console.log('이미지 분석 완료');
+            }
+        }
+
+        async function preprocessImage(imageSrc) {
+            const preprocessing = document.getElementById('preprocessingSelect').value;
+            
+            return new Promise((resolve) => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                const img = new Image();
+                
+                img.onload = () => {
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    
+                    // 기본 이미지 그리기
+                    ctx.drawImage(img, 0, 0);
+                    
+                    // 전처리 적용
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const data = imageData.data;
+                    
+                    switch (preprocessing) {
+                        case 'contrast':
+                            enhanceContrast(data);
+                            break;
+                        case 'blur':
+                            // 노이즈 제거 로직
+                            break;
+                        case 'threshold':
+                            applyThreshold(data);
+                            break;
+                    }
+                    
+                    ctx.putImageData(imageData, 0, 0);
+                    resolve(canvas.toDataURL());
+                };
+                
+                img.src = imageSrc;
+            });
+        }
+
+        function enhanceContrast(data) {
+            const factor = 1.5;
+            for (let i = 0; i < data.length; i += 4) {
+                data[i] = Math.min(255, (data[i] - 128) * factor + 128);     // R
+                data[i + 1] = Math.min(255, (data[i + 1] - 128) * factor + 128); // G
+                data[i + 2] = Math.min(255, (data[i + 2] - 128) * factor + 128); // B
+            }
+        }
+
+        function applyThreshold(data) {
+            const threshold = 128;
+            for (let i = 0; i < data.length; i += 4) {
+                const gray = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                const value = gray > threshold ? 255 : 0;
+                data[i] = data[i + 1] = data[i + 2] = value;
+            }
+        }
+
+        async function performOCR(imageSrc) {
+            try {
+                console.log('OCR API 호출 시작...');
+                const language = document.getElementById('languageSelect').value;
+                const preprocessing = document.getElementById('preprocessingSelect').value;
+                
+                console.log('요청 데이터:', { language, preprocessing });
+                
+                const response = await fetch('./recognize-base64', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                    },
+                    mode: 'cors',
+                    credentials: 'same-origin',
+                    body: JSON.stringify({
+                        image_data: imageSrc,
+                        language: language,
+                        preprocessing: preprocessing
+                    })
+                });
+                
+                console.log('응답 상태:', response.status);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('서버 오류:', errorText);
+                    throw new Error(`서버 오류: ${response.status} - ${errorText}`);
+                }
+                
+                const result = await response.json();
+                console.log('OCR 결과:', result);
+                return result;
+            } catch (error) {
+                console.error('OCR API 호출 오류:', error);
+                throw new Error('서버와의 통신 중 오류가 발생했습니다: ' + error.message);
+            }
+        }
+
+        function parseScoreboardData(ocrResults) {
+            console.log('서버 응답 파싱:', ocrResults);
+            
+            if (!ocrResults.success) {
+                console.error('서버 응답 오류:', ocrResults);
+                // 결과가 없을 때는 빈 배열 반환 (오류가 아닌 정상적인 상황)
+                return [];
+            }
+            
+            if (!ocrResults.data || ocrResults.data.length === 0) {
+                console.log('인식된 데이터가 없습니다');
+                return [];
+            }
+            
+            console.log('서버 데이터:', ocrResults.data);
+            
+            // 서버에서 이미 ScoreData 형태로 반환되므로 그대로 사용
+            return ocrResults.data;
+        }
+
+        function matchNames(parsedData) {
+            return parsedData.map(data => ({
+                ...data,
+                suggestions: findSimilarNames(data.originalName, memberNames, 3)
+            }));
+        }
+
+        function findBestMatch(target, names) {
+            let bestMatch = { name: target, confidence: 0 };
+            
+            names.forEach(name => {
+                const similarity = calculateSimilarity(target, name);
+                if (similarity > bestMatch.confidence) {
+                    bestMatch = { name: name, confidence: similarity };
+                }
+            });
+            
+            return bestMatch;
+        }
+
+        function calculateSimilarity(str1, str2) {
+            // 한글 유사도 계산 (자모 분해 고려)
+            const jamo1 = decomposeHangul(str1);
+            const jamo2 = decomposeHangul(str2);
+            
+            return levenshteinSimilarity(jamo1, jamo2);
+        }
+
+        function decomposeHangul(text) {
+            // 한글 자모 분해 (간단한 버전)
+            if (!text || typeof text !== 'string') {
+                return '';
+            }
+            
+            return text.split('').map(char => {
+                const code = char.charCodeAt(0);
+                if (code >= 0xAC00 && code <= 0xD7A3) {
+                    // 한글 완성형 분해
+                    const base = code - 0xAC00;
+                    const cho = Math.floor(base / 588);
+                    const jung = Math.floor((base % 588) / 28);
+                    const jong = base % 28;
+                    return `${cho}_${jung}_${jong}`;
+                }
+                return char;
+            }).join('');
+        }
+
+        function levenshteinSimilarity(str1, str2) {
+            const matrix = [];
+            const len1 = str1.length;
+            const len2 = str2.length;
+            
+            for (let i = 0; i <= len2; i++) {
+                matrix[i] = [i];
+            }
+            
+            for (let j = 0; j <= len1; j++) {
+                matrix[0][j] = j;
+            }
+            
+            for (let i = 1; i <= len2; i++) {
+                for (let j = 1; j <= len1; j++) {
+                    if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+                        matrix[i][j] = matrix[i - 1][j - 1];
+                    } else {
+                        matrix[i][j] = Math.min(
+                            matrix[i - 1][j - 1] + 1,
+                            matrix[i][j - 1] + 1,
+                            matrix[i - 1][j] + 1
+                        );
+                    }
+                }
+            }
+            
+            const maxLen = Math.max(len1, len2);
+            return maxLen === 0 ? 1 : (maxLen - matrix[len2][len1]) / maxLen;
+        }
+
+        function findSimilarNames(target, names, count) {
+            return names
+                .map(name => ({
+                    name: name,
+                    similarity: calculateSimilarity(target, name)
+                }))
+                .sort((a, b) => b.similarity - a.similarity)
+                .slice(0, count);
+        }
+
+        function displayResults(matchedData) {
+            console.log('결과 표시 시작:', matchedData);
+            recognizedData = matchedData;
+            const resultsDiv = document.getElementById('resultsDiv');
+            
+            if (!matchedData || matchedData.length === 0) {
+                resultsDiv.innerHTML = `
+                    <div style="text-align: center; padding: 40px;">
+                        <div style="font-size: 3rem; margin-bottom: 20px;">🔍</div>
+                        <h3>텍스트를 인식할 수 없습니다</h3>
+                        <p style="color: #666; margin: 20px 0;">
+                            이미지에서 볼링 스코어보드 텍스트를 찾을 수 없습니다.<br>
+                            다음을 확인해보세요:
+                        </p>
+                        <ul style="text-align: left; display: inline-block; color: #666;">
+                            <li>이미지가 선명한지 확인</li>
+                            <li>볼링 스코어보드가 잘 보이는지 확인</li>
+                            <li>다른 각도에서 촬영해보세요</li>
+                            <li>이미지 전처리 옵션을 변경해보세요</li>
+                        </ul>
+                    </div>
+                `;
+                document.getElementById('resultsSection').style.display = 'block';
+                return;
+            }
+            
+            let html = '<table class="score-table">';
+            html += '<thead><tr><th>인식된 이름</th><th>매칭된 이름</th><th>점수</th><th>총점</th><th>신뢰도</th></tr></thead>';
+            html += '<tbody>';
+            
+            matchedData.forEach((data, index) => {
+                console.log('데이터 항목:', data);
+                
+                // 서버 응답 구조에 맞게 필드명 수정
+                const originalName = data.original_name || data.originalName || '알 수 없음';
+                const matchedName = data.matched_name || data.matchedName || '알 수 없음';
+                const scores = data.scores || [];
+                const total = data.total || 0;
+                const matchConfidence = data.match_confidence || data.matchConfidence || 0;
+                
+                const confidenceClass = matchConfidence > 0.8 ? 'confidence-high' : 
+                                      matchConfidence > 0.6 ? 'confidence-medium' : 'confidence-low';
+                
+                html += `<tr>
+                    <td>${originalName}</td>
+                    <td>${matchedName}</td>
+                    <td>${scores.join(', ')}</td>
+                    <td><strong>${total}</strong></td>
+                    <td>
+                        <span class="confidence-badge ${confidenceClass}">
+                            ${Math.round(matchConfidence * 100)}%
+                        </span>
+                    </td>
+                </tr>`;
+            });
+            
+            html += '</tbody></table>';
+            
+            // 부분 인식 결과 표시
+            const nameCount = matchedData.filter(d => d.original_name && d.original_name.trim()).length;
+            const scoreCount = matchedData.filter(d => d.total > 0).length;
+            const totalCount = matchedData.length;
+            
+            if (nameCount !== scoreCount || nameCount !== totalCount) {
+                html += `<div style="margin-top: 20px; padding: 15px; background: #e3f2fd; border-radius: 8px; border-left: 4px solid #2196f3;">
+                    <h4>📊 부분 인식 결과</h4>
+                    <p>이름: ${nameCount}개, 점수: ${scoreCount}개 (총 ${totalCount}개)</p>
+                    <p style="font-size: 0.9rem; color: #666;">누락된 데이터는 편집 팝업에서 수정할 수 있습니다.</p>
+                </div>`;
+            }
+            
+            resultsDiv.innerHTML = html;
+            document.getElementById('resultsSection').style.display = 'block';
+            
+            showSuccess('이미지 분석이 완료되었습니다!');
+            console.log('결과 표시 완료');
+        }
+
+        function updateMatch(index, newName) {
+            console.log(`매칭 업데이트: 인덱스 ${index}, 새 이름: ${newName}`);
+            
+            // 서버 응답 구조에 맞게 필드명 수정
+            if (recognizedData[index].matched_name !== undefined) {
+                recognizedData[index].matched_name = newName;
+                recognizedData[index].match_confidence = 1.0;
+            } else {
+                recognizedData[index].matchedName = newName;
+                recognizedData[index].matchConfidence = 1.0;
+            }
+            
+            // 결과 재표시
+            displayResults(recognizedData);
+        }
+
+        function showLoading(show) {
+            document.getElementById('loadingDiv').style.display = show ? 'block' : 'none';
+            document.getElementById('resultsSection').style.display = show ? 'block' : 'none';
+        }
+
+        function showError(message) {
+            const resultsDiv = document.getElementById('resultsDiv');
+            resultsDiv.innerHTML = `<div class="error-message">❌ ${message}</div>`;
+            document.getElementById('resultsSection').style.display = 'block';
+        }
+
+        function showSuccess(message) {
+            const successDiv = document.createElement('div');
+            successDiv.className = 'success-message';
+            successDiv.innerHTML = `✅ ${message}`;
+            
+            const resultsSection = document.getElementById('resultsSection');
+            resultsSection.insertBefore(successDiv, resultsSection.firstChild);
+            
+            setTimeout(() => {
+                successDiv.remove();
+            }, 3000);
+        }
+
+        // 결과 편집 팝업 관련 함수들
+        let currentEditData = [];
+
+        function showEditPopup() {
+            if (!recognizedData || recognizedData.length === 0) {
+                alert('수정할 결과가 없습니다.');
+                return;
+            }
+
+            currentEditData = JSON.parse(JSON.stringify(recognizedData)); // 깊은 복사
+            const popupContent = document.getElementById('editPopupContent');
+            
+            let html = '';
+            currentEditData.forEach((data, index) => {
+                const originalName = data.original_name || data.originalName || '알 수 없음';
+                const matchedName = data.matched_name || data.matchedName || originalName;
+                const total = data.total || 0;
+                const scores = data.scores || [];
+                const confidence = data.confidence || 0;
+                const matchConfidence = data.match_confidence || data.matchConfidence || 0;
+
+                html += `
+                    <div class="edit-result-item">
+                        <div style="display: flex; gap: 15px; align-items: center;">
+                            <div class="edit-input-group" style="flex: 2;">
+                                <label class="edit-input-label">이름</label>
+                                <input type="text" class="edit-input" value="${matchedName}" 
+                                       onchange="updateEditData(${index}, 'name', this.value)">
+                            </div>
+                            
+                            <div class="edit-input-group" style="flex: 1;">
+                                <label class="edit-input-label">총점</label>
+                                <input type="number" class="edit-input" value="${total}" 
+                                       onchange="updateEditData(${index}, 'total', this.value)">
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            popupContent.innerHTML = html;
+            document.getElementById('editPopup').style.display = 'flex';
+        }
+
+        function closeEditPopup() {
+            document.getElementById('editPopup').style.display = 'none';
+        }
+
+        function updateEditData(index, field, value) {
+            if (index >= 0 && index < currentEditData.length) {
+                if (field === 'name') {
+                    currentEditData[index].matched_name = value;
+                    currentEditData[index].matchedName = value;
+                    currentEditData[index].match_confidence = 1.0;
+                    currentEditData[index].matchConfidence = 1.0;
+                } else if (field === 'total') {
+                    currentEditData[index].total = parseInt(value) || 0;
+                }
+            }
+        }
+
+        function confirmEdit() {
+            // 수정된 데이터로 결과 업데이트
+            recognizedData = currentEditData;
+            
+            // 결과 재표시
+            displayResults(recognizedData);
+            
+            // 팝업 닫기
+            closeEditPopup();
+            
+            // 성공 메시지
+            showSuccess('결과가 수정되었습니다!');
+        }
+
+        // 초기화
+        updateMemberList();
+    </script>
+</body>
+</html>
