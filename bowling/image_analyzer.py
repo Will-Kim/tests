@@ -46,20 +46,10 @@ class ImageAnalyzer:
                 from google.api_core import client_options
                 client_options_obj = client_options.ClientOptions(
                     api_endpoint="vision.googleapis.com",
-                    client_cert_source=None,
                     api_audience=None,
                     quota_project_id=None,
-                    user_agent=None,
                     api_key=None,
-                    credentials_file=None,
-                    scopes=None,
-                    always_use_jwt_access=None,
-                    enable_self_signed_jwt=None,
-                    default_scopes=None,
-                    default_host=None,
-                    default_quota_project_id=None,
-                    default_scopes=None,
-                    default_timeout=30.0
+                    scopes=None
                 )
                 self.client = vision.ImageAnnotatorClient(client_options=client_options_obj)
             else:

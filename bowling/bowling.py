@@ -301,7 +301,7 @@ recognizer = BowlingScoreRecognizer()
 @app.get("/", response_class=HTMLResponse)
 async def root():
     """메인 페이지"""
-    return FileResponse("bowling.html")
+    return FileResponse("bowling/bowling.html")
 
 @app.get("/members")
 async def get_members():
@@ -606,4 +606,4 @@ async def list_saved_images():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8091)
+    uvicorn.run("bowling:app", host="0.0.0.0", port=8091, reload=True)
