@@ -44,7 +44,6 @@ ENV/
 # Results and test files
 results/
 test_videos/
-*.png
 *.jpg
 *.jpeg
 *.mp4
