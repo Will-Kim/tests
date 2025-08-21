@@ -11,6 +11,7 @@ pytools==2025.2.2
 pytz==2025.2
 python-dateutil==2.9.0.post0
 regex==2025.7.34
+redis==5.0.1
 requests==2.32.3
 siphash24==1.7
 six==1.17.0
